@@ -1,34 +1,39 @@
 import socket
 import time
+import threading
+import SocketServer
+
+class ThreadedTCPRequestHandler(SocketServer.BaseRequestHandler):
+    def handle(self):
+        data = "testing the asumption"
+        cur_thread = threading.current_thread()
+        response = bytes("{}: {}".format(cur_thread.name, data))
+        print response
+        while True:
+            k = 1
+
+class ThreadedTCPServer(SocketServer.ThreadingMixIn, SocketServer.TCPServer):
+    pass
 
 def main():
-    # create a socket object
-    serversocket = socket.socket(
-                        socket.AF_INET, socket.SOCK_STREAM)
+    HOST = socket.gethostname()
+    PORT = 9999
+    server = ThreadedTCPServer((HOST, PORT), ThreadedTCPRequestHandler)
+    ip, port = server.server_address
 
-    # get local machine name
-    host = socket.gethostname()
-
-    port = 9999
-
-    # bind to the port
-    serversocket.bind((host, port))
-
-    # queue up to 5 requests
-    serversocket.listen(5)
+    # start a thread with the server.
+    # the thread will then start one more thread for each request.
+    server_thread = threading.Thread(target=server.serve_forever)
+    # exit the server thread when the main thread terminates
+    server_thread.daemon = True
+    server_thread.start()   # equivalent to serversocket.listen()
 
     while True:
-            # establish a connection
-            clientsocket,addr = serversocket.accept()
-            print("Got a connection from %s" % str(addr))
-            currentTime = time.ctime(time.time()) + "\r\n"
-            # receive username password
+        # do nothing
+        couunt = 1
 
-            # validate in DB
+    server.shutdown()
 
-            # send ack
-            clientsocket.send(currentTime.encode('ascii'))
-            clientsocket.close()
 
-if __name__ == 'main':
+if __name__ == '__main__':
     main()

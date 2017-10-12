@@ -10,7 +10,9 @@ def main():
     port = 9999
 
     # connection to hostname on the port.
-    s.connect((host, port))                            
+    s.connect((host, port))
+    while True:
+        k = 1
 
     # read flag (-l)
     # if l then read username password
@@ -20,4 +22,6 @@ def main():
     # print user authenticated
     s.close()
 
-    print("The time got from the server is %s" % tm.decode('ascii'))
+
+if __name__ == '__main__':
+    main()
