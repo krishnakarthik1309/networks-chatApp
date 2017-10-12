@@ -8,6 +8,13 @@ class ThreadedTCPRequestHandler(SocketServer.BaseRequestHandler):
         data = "testing the asumption"
         cur_thread = threading.current_thread()
         response = bytes("{}: {}".format(cur_thread.name, data))
+
+        # Receive string of fixed length from the client
+        k = self.request.recv(1024)
+        print k
+        # Send any string to the client
+        self.request.sendall("haha")
+        
         print response
         while True:
             k = 1
@@ -30,7 +37,7 @@ def main():
 
     while True:
         # do nothing
-        couunt = 1
+        count = 1
 
     server.shutdown()
 
