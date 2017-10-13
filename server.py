@@ -2,22 +2,75 @@ import socket
 import time
 import threading
 import SocketServer
+import sys
 
 class ThreadedTCPRequestHandler(SocketServer.BaseRequestHandler):
+    
     def handle(self):
-        data = "testing the asumption"
-        cur_thread = threading.current_thread()
-        response = bytes("{}: {}".format(cur_thread.name, data))
 
-        # Receive string of fixed length from the client
-        k = self.request.recv(1024)
-        print k
-        # Send any string to the client
-        self.request.sendall("haha")
+        # Receive special userPacket for login/register
+        userPacket = eval(self.request.recv(1024))
+
+        # user socket is tuple (user ip addr, user port num)
+        userSocket = self.request.getpeername()
+
+        # get the dict for the user
+        userDB = DB()
+        userDict = userDB.userData(userPacket['username'])
+        userBlocked = userDB.userBlockList(userPacket['username'])
+
+        if  not userDict:
+            # send 1 : no such username exists
+            self.request.sendall(str(1))
+            # goto some exit point
+            exit()
+
+        elif userBlocked:
+            # if next possible login time is in future
+            if userBlocked['initialFailedLoginTime'] > time.time():
+                self.request.sendall(str(5) + " " + str(userBlocked['initialFailedLoginTime']))
+                # goto some exit point
+                exit()
         
-        print response
-        while True:
-            k = 1
+        elif userDict['loggedin']:
+            self.request.sendall(str(3))
+            # goto some exit point
+            exit()
+
+        elif userDict['password'] == userPacket['password']:
+            self.request.sendall(str(0))
+            # IMP : connection is live
+            # goto chat now
+
+        elif userDict['password'] != userPacket['password']:
+
+            if not userBlocked or (time.time() - userBlocked['initialFailedLoginTime'] > 60):
+                if not userBlocked:
+                    userBlocked = {'username':userPacket['username']}
+                userBlocked['numAttempts'] = 1
+                userBlocked['initialFailedLoginTime'] = time.time()
+            else:
+                userBlocked['numAttempts'] += 1
+
+            if userBlocked['numAttempts'] > 3:
+                userBlocked['initialFailedLoginTime'] = time.time() + 60
+                # send password wrong, you are blocked, retry after 
+                self.request.sendall(str(4) + " " + str(userBlocked['initialFailedLoginTime']))
+                
+            else:
+                # send password did not match
+                self.request.sendall(str(2))
+            
+            # Update  userBlockList
+            userDB.updateUserBlockList(userBlocked)
+            # goto some exit point
+            exit()
+
+
+    def exit():
+        sys.exit()
+
+
 
 class ThreadedTCPServer(SocketServer.ThreadingMixIn, SocketServer.TCPServer):
     pass
