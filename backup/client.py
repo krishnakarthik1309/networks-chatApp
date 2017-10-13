@@ -34,32 +34,21 @@ def UserPacket(arguments):
     return Packet
 
 def chat():
-    while True:
-        k = 1
     pass
 
-def displayError(ack, purpose):
-
-    print ack
-    if purpose == 'login':
-        if ack.split()[0] == '1':
-            print "No such User Exists"
-        elif ack.split()[0] == '2':
-            print "Incorrect username/password"
-        elif ack.split()[0] == '3':
-            print "User already logged in from a different system"
-        elif ack.split()[0] == '4':
-            print "Password wrong, exceeded number of incorrect attempts. Retry after 60 secs"
-        elif ack.split()[0] == '5':
-            print "You have been blocked. Try after "+ ack.split()[1]
-
-    elif purpose == 'register':
-        if ack.split()[0] == '1':
-            print "Username is taken"
-        elif ack.split()[0] == '2':
-            print "You are registered"
-		 
-    return
+def displayError(ack):
+    if ack == '1':
+        print "No such User Exists"
+    elif ack == '2':
+        print "Incorrect username/password"
+    elif ack == '3':
+        print "User already logged in from a different system"
+    elif ack == '4':
+        print "Password wrong, exceeded number of incorrect attempts. Retry after 30 secs"
+    elif ack == '5':
+        # change the harcoded time
+        print "You have been blocked. Try after 30 sec"
+    pass
 
 def main():
     # create a socket object
@@ -89,21 +78,21 @@ def main():
         chat()
     else:
         #if not authenticated
-        displayError(ack, userDetails['purpose'])
+        displayError(ack)
     s.close()
 
 
 
 
-    # while True:
+    while True:
         # user is logged in
         # connect to DB
         # read messages from user and send it to server
-        # pass
+        pass
 
 
-    # tm = s.recv(1024)
-    # print("The time got from the server is %s" % tm.decode('ascii'))
+    tm = s.recv(1024)
+    print("The time got from the server is %s" % tm.decode('ascii'))
 
 if __name__ == '__main__':
     main()

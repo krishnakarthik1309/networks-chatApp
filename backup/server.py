@@ -32,22 +32,13 @@ class DB(object):
 
     def updateUserBlockList(self, updatedData):
         username = updatedData['username']
-        oldData = self.getUserBlockList(username)
-        if oldData is None:
-            self.userBlockList.insert(updatedData)
-        else:
-            self.userBlockList.replace_one(oldData, updatedData)
-
-    def register(self, username, password):
-        self.userData.insert({'username': username, 'password': password, 'isLoggedIn': False})
+        oldData = self.getUserData(username)
+        self.userBlockList.replace_one(oldData, updatedData)
 
 
 class ThreadedTCPRequestHandler(SocketServer.BaseRequestHandler):
     
-
     def handle(self):
-
-        # print threading.current_thread().name, threading.active_count()
 
         # Receive special userPacket for login/register
         userPacket = eval(self.request.recv(1024))
@@ -57,44 +48,39 @@ class ThreadedTCPRequestHandler(SocketServer.BaseRequestHandler):
 
         # get the dict for the user
         userDB = DB()
-        userDict = userDB.getUserData(userPacket['username'])
-        userBlocked = userDB.getUserBlockList(userPacket['username'])
-
-        print userDict
-        print userBlocked
-
-        print userPacket
+        userDict = userDB.userData(userPacket['username'])
+        userBlocked = userDB.userBlockList(userPacket['username'])
 
         if userPacket['purpose'] == 'register':
             if userDict:
                 # send user already exists
-                self.request.sendall(str(1))
+                self.request.sendall(str(0))
+                exit()
             else:
                 # register
                 userDB.register(userPacket['username'], userPacket['password'])
                 # send you are registered
-                self.request.sendall(str(2))
+                self.request.sendall(str(1))
+                exit()
+
 
         if  not userDict:
             # send 1 : no such username exists
             self.request.sendall(str(1))
+            exit()
 
         elif userBlocked:
             # if next possible login time is in future
             if userBlocked['initialFailedLoginTime'] > time.time():
                 self.request.sendall(str(5) + " " + str(userBlocked['initialFailedLoginTime']))
+                exit()
         
-
-        if userDict['isLoggedIn']:
+        elif userDict['loggedin']:
             self.request.sendall(str(3))
+            exit()
 
-        if userDict['password'] == userPacket['password']:
+        elif userDict['password'] == userPacket['password']:
             self.request.sendall(str(0))
-            userDict['isLoggedIn'] = True
-            userDB.updateUserData(userDict)
-            print userDB.getUserData(userPacket['username'])
-
-
             # IMP : connection is live
             # goto chat now
 
@@ -117,8 +103,14 @@ class ThreadedTCPRequestHandler(SocketServer.BaseRequestHandler):
                 # send password did not match
                 self.request.sendall(str(2))
             
-            # Update userBlockList
+            # Update  userBlockList
             userDB.updateUserBlockList(userBlocked)
+            exit()
+
+
+    def exit():
+        sys.exit()
+
 
 
 class ThreadedTCPServer(SocketServer.ThreadingMixIn, SocketServer.TCPServer):
