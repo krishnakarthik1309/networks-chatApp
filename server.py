@@ -32,8 +32,14 @@ class DB(object):
 
     def updateUserBlockList(self, updatedData):
         username = updatedData['username']
-        oldData = self.getUserData(username)
-        self.userBlockList.replace_one(oldData, updatedData)
+        oldData = self.getUserBlockList(username)
+        if oldData is None:
+            self.userBlockList.insert(updatedData)
+        else:
+            self.userBlockList.replace_one(oldData, updatedData)
+
+    def register(self, username, password):
+        self.userData.insert({'username': username, 'password': password, 'isLoggedIn': False})
 
 
 class ThreadedTCPRequestHandler(SocketServer.BaseRequestHandler):

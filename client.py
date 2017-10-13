@@ -37,18 +37,17 @@ def chat():
     pass
 
 def displayError(ack):
-    if ack == '1':
+    if ack.split()[0] == '1':
         print "No such User Exists"
-    elif ack == '2':
+    elif ack.split()[0] == '2':
         print "Incorrect username/password"
-    elif ack == '3':
+    elif ack.split()[0] == '3':
         print "User already logged in from a different system"
-    elif ack == '4':
+    elif ack.split()[0] == '4':
         print "Password wrong, exceeded number of incorrect attempts. Retry after 30 secs"
-    elif ack == '5':
-        # change the harcoded time
-        print "You have been blocked. Try after 30 sec"
-    pass
+    elif ack.split()[0] == '5':
+        print "You have been blocked. Try after "+ float(ack.split()[1])
+    return
 
 def main():
     # create a socket object
