@@ -29,10 +29,26 @@ def UserPacket(arguments):
         Packet['password'] = getpass.getpass(prompt='Please enter your password:\n')
 
     else:
-        help()        
+        help()
 
     return Packet
 
+def chat():
+    pass
+
+def displayError(ack):
+    if ack == '1':
+        print "No such User Exists"
+    elif ack == '2':
+        print "Incorrect username/password"
+    elif ack == '3':
+        print "User already logged in from a different system"
+    elif ack == '4':
+        print "Password wrong, exceeded number of incorrect attempts. Retry after 30 secs"
+    elif ack == '5':
+        # change the harcoded time
+        print "You have been blocked. Try after 30 sec"
+    pass
 
 def main():
     # create a socket object
@@ -56,11 +72,17 @@ def main():
     # receive validation from server (continue)
     ack = s.recv(1024)
 
-    # print user authenticated
-    print ack
-
-    #if not authenticated
+    # if authenticated
+    if ack == '0':
+        print "Successfully Authenticated"
+        chat()
+    else:
+        #if not authenticated
+        displayError(ack)
     s.close()
+
+
+
 
     while True:
         # user is logged in
@@ -69,7 +91,7 @@ def main():
         pass
 
 
-    tm = s.recv(1024)    
+    tm = s.recv(1024)
     print("The time got from the server is %s" % tm.decode('ascii'))
 
 if __name__ == '__main__':
