@@ -3,6 +3,7 @@ import time
 import threading
 import SocketServer
 import pymongo
+import time
 
 class DB(object):
     def __init__(self):
@@ -17,11 +18,21 @@ class DB(object):
         self.userData = db[userDataCollection]
         self.userBlockList = db[userBlockCollection]
 
-    def getUserData(self):
-        return self.userData
+    def getUserData(self, username):
+        return self.userData.find_one({'username': username})
 
-    def getUserBlockList(self):
-        return self.userBlockList
+    def getUserBlockList(self, username):
+        return self.userBlockList.find_one({'username': username})
+
+    def updateUserData(self, updatedData):
+        username = updatedData['username']
+        oldData = self.getUserData(username)
+        self.userData.replace_one(oldData, updatedData)
+
+    def updateUserBlockList(self, updatedData):
+        username = updatedData['username']
+        oldData = self.getUserData(username)
+        self.userBlockList.replace_one(oldData, updatedData)
 
 class ThreadedTCPRequestHandler(SocketServer.BaseRequestHandler):
     def handle(self):
