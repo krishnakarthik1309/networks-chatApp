@@ -3,6 +3,38 @@ import time
 import threading
 import SocketServer
 import sys
+import pymongo
+import time
+
+class DB(object):
+    def __init__(self):
+        mongoServer = 'localhost'
+        mongoPort = 27017
+        dbName = 'serverDB'
+        userDataCollection = 'userData'
+        userBlockCollection = 'userBlockList'
+
+        connection = pymongo.MongoClient(mongoServer, mongoPort)
+        db = connection[dbName]
+        self.userData = db[userDataCollection]
+        self.userBlockList = db[userBlockCollection]
+
+    def getUserData(self, username):
+        return self.userData.find_one({'username': username})
+
+    def getUserBlockList(self, username):
+        return self.userBlockList.find_one({'username': username})
+
+    def updateUserData(self, updatedData):
+        username = updatedData['username']
+        oldData = self.getUserData(username)
+        self.userData.replace_one(oldData, updatedData)
+
+    def updateUserBlockList(self, updatedData):
+        username = updatedData['username']
+        oldData = self.getUserData(username)
+        self.userBlockList.replace_one(oldData, updatedData)
+
 
 class ThreadedTCPRequestHandler(SocketServer.BaseRequestHandler):
     
@@ -19,22 +51,32 @@ class ThreadedTCPRequestHandler(SocketServer.BaseRequestHandler):
         userDict = userDB.userData(userPacket['username'])
         userBlocked = userDB.userBlockList(userPacket['username'])
 
+        if userPacket['purpose'] == 'register':
+            if userDict:
+                # send user already exists
+                self.request.sendall(str(0))
+                exit()
+            else:
+                # register
+                userDB.register(userPacket['username'], userPacket['password'])
+                # send you are registered
+                self.request.sendall(str(1))
+                exit()
+
+
         if  not userDict:
             # send 1 : no such username exists
             self.request.sendall(str(1))
-            # goto some exit point
             exit()
 
         elif userBlocked:
             # if next possible login time is in future
             if userBlocked['initialFailedLoginTime'] > time.time():
                 self.request.sendall(str(5) + " " + str(userBlocked['initialFailedLoginTime']))
-                # goto some exit point
                 exit()
         
         elif userDict['loggedin']:
             self.request.sendall(str(3))
-            # goto some exit point
             exit()
 
         elif userDict['password'] == userPacket['password']:
@@ -63,7 +105,6 @@ class ThreadedTCPRequestHandler(SocketServer.BaseRequestHandler):
             
             # Update  userBlockList
             userDB.updateUserBlockList(userBlocked)
-            # goto some exit point
             exit()
 
 
