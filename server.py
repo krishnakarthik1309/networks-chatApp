@@ -2,6 +2,26 @@ import socket
 import time
 import threading
 import SocketServer
+import pymongo
+
+class DB(object):
+    def __init__(self):
+        mongoServer = 'localhost'
+        mongoPort = 27017
+        dbName = 'serverDB'
+        userDataCollection = 'userData'
+        userBlockCollection = 'userBlockList'
+
+        connection = pymongo.MongoClient(mongoServer, mongoPort)
+        db = connection[dbName]
+        self.userData = db[userDataCollection]
+        self.userBlockList = db[userBlockCollection]
+
+    def getUserData(self):
+        return self.userData
+
+    def getUserBlockList(self):
+        return self.userBlockList
 
 class ThreadedTCPRequestHandler(SocketServer.BaseRequestHandler):
     def handle(self):
@@ -14,7 +34,7 @@ class ThreadedTCPRequestHandler(SocketServer.BaseRequestHandler):
         print k
         # Send any string to the client
         self.request.sendall("haha")
-        
+
         print response
         while True:
             k = 1
