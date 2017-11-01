@@ -44,7 +44,7 @@ class ThreadedTCPRequestHandler(SocketServer.BaseRequestHandler):
 
         if status == SUCCESS:
 
-            # what happens to loop after logging out
+            #TODO: what happens to loop after logging out
             while True:
                 self.handleChat(userDB, userDict, messageDB)
 
@@ -145,29 +145,33 @@ class ThreadedTCPRequestHandler(SocketServer.BaseRequestHandler):
         # if logged in send him the message using userDB.getUserData(toUser)['socket']
         # otherwise store it in DB [toUser, fromUser, message, time?]
         #   -- messageDB.addUnreadMessage(toUser, fromUser, message)
+        toUser = msgPacket['toUser']
         receiver = userDB.getUserData(toUser)
         if not receiver:
             return
 
+        msgType = PRIVATE
+        if broadcast:
+            msgType = BROADCAST
+        msgPacket['msgType'] = msgType
+
         if receiver['isLoggedIn']:
             # write to socket
+            #TODO: Read host and port correctly
             host, port = receiver['socket'][0], receiver['socket'][1] 
             s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             try:
                 s.connect((host, port))
-                msgType = PRIVATE
-                if broadcast:
-                    msgType = BROADCAST
-                msgPacket['msgType'] = msgType
-                msgAck = str({'cmd':'send', 'msgLen':len(msgPacket), 'msgType': msgType})
-                s.sendall(msgAck)
-                s.sendall(msgPacket)
+                msgAck = {'cmd':'send', 'msgLen':len(msgPacket), 'msgType':msgType}
+                s.sendall(str(msgAck))
+                s.sendall(str(msgPacket))
+                s.close()
             except socket.error:
                 self.handleLogout(userDB, receiver)
-                self.handlePrivateMessage(userDB, userDict, toUser, message, messageDB)                
+                self.handlePrivateMessage(userDB, userDict, msgPacket, messageDB)
 
         else:
-            messageDB.addUnreadMessage(toUser, userDict['username'], message)
+            messageDB.addUnreadMessage(toUser, userDict['username'], msgPacket)
 
 
     # TODO 2.2:
@@ -181,7 +185,7 @@ class ThreadedTCPRequestHandler(SocketServer.BaseRequestHandler):
 
     # TODO 2.3:
     def handleLogout(self, userDB, userDict):
-        
+
         pass
 
 class ThreadedTCPServer(SocketServer.ThreadingMixIn, SocketServer.TCPServer):
