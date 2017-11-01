@@ -31,6 +31,8 @@ class ThreadedTCPRequestHandler(SocketServer.BaseRequestHandler):
     def handle(self):
         # Receive special userPacket for login/register
         userPacket = eval(self.request.recv(1024))
+        userSocket = self.request.getpeername()
+        
         # get the dict for the user
         userDB = UserDB()
         userDict = userDB.getUserData(userPacket['username'])
@@ -40,11 +42,12 @@ class ThreadedTCPRequestHandler(SocketServer.BaseRequestHandler):
         if userPacket['purpose'] == 'register':
             status = self.handleRegister(userPacket, userDB, userDict)
         elif userPacket['purpose'] == 'login':
-            status = self.handleLogin(userPacket, userDB, userDict, userBlocked)
+            status = self.handleLogin(userPacket, userDB, userDict, userBlocked, userSocket)
 
         if status == SUCCESS:
 
             #TODO: what happens to loop after logging out
+            messageDB = MessageDB()
             while True:
                 self.handleChat(userDB, userDict, messageDB)
 
@@ -61,7 +64,7 @@ class ThreadedTCPRequestHandler(SocketServer.BaseRequestHandler):
             # user is auto-logged-in if registration is success
             return SUCCESS
 
-    def handleLogin(self, userPacket, userDB, userDict, userBlocked):
+    def handleLogin(self, userPacket, userDB, userDict, userBlocked, userSocket):
         if not userDict:
             self.request.sendall(NO_SUCH_USER_EXISTS)
             return FAILED
@@ -81,6 +84,7 @@ class ThreadedTCPRequestHandler(SocketServer.BaseRequestHandler):
             else:
                 self.request.sendall(SUCCESSFULLY_AUTHENTICATED)
                 userDict['isLoggedIn'] = True
+                userDict['socket'] = userSocket
                 userDB.updateUserData(userDict)
                 return SUCCESS
         else:
@@ -117,7 +121,10 @@ class ThreadedTCPRequestHandler(SocketServer.BaseRequestHandler):
         # first receive type of message(broadcast/private/logout), length of message
         # update messageType
         try:
-            msgAck = eval(self.request.recv(1024))
+            msgAck = self.request.recv(1024)
+            if not msgAck:
+                return
+            msgAck = eval(msgAck)
             if msgAck['cmd'] == 'send':
 
                 if msgAck['msgType'] == PRIVATE:
