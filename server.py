@@ -31,7 +31,6 @@ class ThreadedTCPRequestHandler(SocketServer.BaseRequestHandler):
     def handle(self):
         # Receive special userPacket for login/register
         userPacket = eval(self.request.recv(1024))
-
         # get the dict for the user
         userDB = UserDB()
         userDict = userDB.getUserData(userPacket['username'])
@@ -46,11 +45,13 @@ class ThreadedTCPRequestHandler(SocketServer.BaseRequestHandler):
         if status == SUCCESS:
             # TODO 0: save client socket value in userDict and update it in userDB
 
-            messageDB = MessageDB()
+            print status
+            # messageDB = MessageDB()
             # TODO 1: retrieve old unread messages if any
-            self.handleUnread(userDict, messageDB)
+            # self.handleUnread(userDict, messageDB)
             # TODO 2: chat now
-            self.handleChat(userDB, userDict, messageDB)
+            while True:
+                self.handleChat(userDB, userDict, messageDB)
 
     def handleRegister(self, userPacket, userDB, userDict):
         if userDict:
@@ -116,19 +117,31 @@ class ThreadedTCPRequestHandler(SocketServer.BaseRequestHandler):
 
     # TODO 2.0:
     def handleChat(self, userDB, userDict, messageDB):
-        messageType = PRIVATE
+        # messageType = PRIVATE
         # first receive type of message(broadcast/private/logout), length of message
         # update messageType
+        try:
+            msgAck = eval(self.request.recv(1024))
+            if msgAck['purpose'] == 'RCV_MSG':
+                msgPacket = eval(self.request.recv(msgAck['MSG_LEN']))
 
-        # if private: receive toUser(first 8bytes?), then message
-        if messageType == PRIVATE:
-            self.handlePrivateMessage(userDB, userDict, toUser, message, messageDB)
-        elif messageType == BROADCAST:
-            # if broadcast: receive message
-            self.handleBroadcastMessage(userDB, message)
-        else:
-            # logout
-            self.handleLogout(userDB, userDict)
+                message = msgPacket['MSG_BODY']
+                if msgPacket['MSG_TYPE'] == PRIVATE:
+                    toUser = msgPacket['toUser']
+                    self.handlePrivateMessage(userDB, userDict, toUser, message, messageDB)
+
+                elif msgPacket['MSG_TYPE'] == BROADCAST:
+                    self.handleBroadcastMessage(userDB, message)
+
+                elif msgPacket['MSG_TYPE'] == LOGOUT:
+                    self.handleLogout(UserDB, userDict)
+
+                else:
+                    pass
+
+        except socket.error, e:
+            pass
+
 
     # TODO 2.1:
     def handlePrivateMessage(self, userDB, userDict, toUser, message, messageDB):
@@ -137,7 +150,27 @@ class ThreadedTCPRequestHandler(SocketServer.BaseRequestHandler):
         # if logged in send him the message using userDB.getUserData(toUser)['socket']
         # otherwise store it in DB [toUser, fromUser, message, time?]
         #   -- messageDB.addUnreadMessage(toUser, fromUser, message)
-        pass
+        receiver = userDB.getUserData(toUser)
+        if not receiver:
+            # receiver d.n.e
+            pass
+        if receiver['isLoggedIn']:
+            # write to socket
+            host, port = receiver['socket'][0], receiver['socket'][1] 
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            try:
+                s.connect((host, port))
+                msgPacket = str({'purpose':'MSG_INCOMING', 'MSG_BODY':message, })
+                msgAck = str({'purpose':'RCV_MSG', 'MSG_LEN':len(msgPacket)})
+                s.sendall(msgAck)
+                s.sendall(msgPacket)
+            except socket.error:
+                self.handleLogout(userDB, receiver)
+                self.handlePrivateMessage(userDB, userDict, toUser, message, messageDB)                
+
+        else:
+            messageDB.addUnreadMessage(toUser, userDict['username'], message)
+
 
     # TODO 2.2:
     def handleBroadcastMessage(self, userDB, message):
