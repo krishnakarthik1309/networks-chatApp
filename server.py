@@ -66,8 +66,6 @@ class ThreadedTCPRequestHandler(SocketServer.BaseRequestHandler):
             return SUCCESS
 
     def handleLogin(self, userPacket, userDB, userDict, userBlocked):
-        activeUsers = userDB.getAllUsersLoggedIn()
-        print activeUsers
         if not userDict:
             self.request.sendall(NO_SUCH_USER_EXISTS)
             return FAILED
@@ -149,7 +147,6 @@ class ThreadedTCPRequestHandler(SocketServer.BaseRequestHandler):
         activeUsers = userDB.getAllUsersLoggedIn()
         for receiver in activeUsers:
             self.handlePrivateMessage(userDB, userDict, recevier, message, messageDB)
-        # pass
 
     # TODO 2.3:
     def handleLogout(self, userDB, userDict):
