@@ -34,7 +34,7 @@ class UserDB(object):
             self.userBlockList.replace_one(oldData, updatedData)
 
     def register(self, username, password):
-        self.userData.insert({'username': username, 'password': password, 'isLoggedIn': False})
+        self.userData.insert({'username': username, 'password': password, 'isLoggedIn': False, 'socket': [-1, -1]})
 
     def getAllUsersLoggedIn(self):
         active = []

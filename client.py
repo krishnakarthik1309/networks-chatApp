@@ -1,6 +1,13 @@
 import socket
 import sys
 import getpass
+import time
+from threading import Thread
+
+PRIVATE = 'private'
+BROADCAST = 'broadcast'
+LOGOUT = 'logout'
+isLoggedIn = False
 
 def help():
     # print all help material here
@@ -33,10 +40,49 @@ def UserPacket(arguments):
 
     return Packet
 
-def chat():
+def messagePacket(userInput):
+    cmd = userInput[0]
+    ack = {'cmd': cmd}
+    message = {}
+    if cmd == 'send':
+        msgType = userInput[1]
+        if msgType == BROADCAST:
+            msgContent = userInput[2]
+            msgLen = len(msgContent)
+            ack['msgType'] = msgType
+            ack['msgLen'] = msgLen
+            message['msgContent'] = msgContent
+            message['created'] = int(time.time())
+            return ack, message
+        else:
+            toUser = userInput[2]
+            msgContent = userInput[3]
+            msgLen = len(msgContent)
+            ack['msgType'] = msgType
+            ack['msgLen'] = msgLen
+            message['toUser'] = toUser
+            message['msgContent'] = msgContent
+            message['created'] = int(time.time())
+            return ack, message
+    elif cmd == LOGOUT:
+        return ack, None
+
+def sendMsg(s):
     while True:
-        k = 1
-    pass
+        userInput = raw_input().split()
+        ack, message = messagePacket(userInput)
+        s.sendall(ack)
+        if ack['cmd'] == 'send':
+            s.sendall(message)
+        if ack['cmd'] == LOGOUT:
+            isLoggedIn = False
+            s.close()
+
+def recvMsg(s):
+    while isLoggedIn:
+        # handle receiving messages
+        # display
+        pass
 
 def displayError(ack, purpose):
 
@@ -58,7 +104,7 @@ def displayError(ack, purpose):
             print "Username is taken"
         elif ack.split()[0] == '2':
             print "You are registered"
-		 
+
     return
 
 def main():
@@ -86,11 +132,16 @@ def main():
     # if authenticated
     if ack == '0':
         print "Successfully Authenticated"
-        chat()
+        isLoggedIn = True
+        sendThread = Thread(target=sendMsg, args=(s, ))
+        recvThread = Thread(target=recvMsg, args=(s, ))
+        sendThread.start()
+        recvThread.start()
+
     else:
         #if not authenticated
         displayError(ack, userDetails['purpose'])
-    s.close()
+        s.close()
 
 
 
