@@ -1,4 +1,5 @@
 import pymongo
+import time
 
 class UserDB(object):
     def __init__(self):
@@ -33,10 +34,13 @@ class UserDB(object):
             self.userBlockList.replace_one(oldData, updatedData)
 
     def register(self, username, password):
-        self.userData.insert({'username': username, 'password': password, 'isLoggedIn': True})
+        self.userData.insert({'username': username, 'password': password, 'isLoggedIn': False})
 
     def getAllUsersLoggedIn(self):
-        pass
+        active = []
+        for user in self.userData.find({'isLoggedIn': True}):
+            active.append(user['username'])
+        return active
 
 
 class MessageDB(object):
@@ -51,10 +55,10 @@ class MessageDB(object):
         self.messages = db[messageCollection]
 
     def getUnreadMessages(self, username):
-        pass
+        return self.messages.find({'toUser': username})
 
     def removeUnreadMessages(self, username):
-        pass
+        self.messages.delete_many({'toUser': username})
 
     def addUnreadMessage(self, toUser, fromUser, message):
-        pass
+        self.messages.insert({'toUser': toUser, 'fromUser': fromUser, 'message': message, 'time': int(time.time())})
