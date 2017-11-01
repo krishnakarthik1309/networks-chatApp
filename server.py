@@ -31,7 +31,8 @@ class ThreadedTCPRequestHandler(SocketServer.BaseRequestHandler):
     def handle(self):
         # Receive special userPacket for login/register
         userPacket = eval(self.request.recv(1024))
-
+        userSocket = self.request.getpeername()
+        
         # get the dict for the user
         userDB = UserDB()
         userDict = userDB.getUserData(userPacket['username'])
@@ -41,16 +42,15 @@ class ThreadedTCPRequestHandler(SocketServer.BaseRequestHandler):
         if userPacket['purpose'] == 'register':
             status = self.handleRegister(userPacket, userDB, userDict)
         elif userPacket['purpose'] == 'login':
-            status = self.handleLogin(userPacket, userDB, userDict, userBlocked)
+            status = self.handleLogin(userPacket, userDB, userDict, userBlocked, userSocket)
 
         if status == SUCCESS:
-            # TODO 0: save client socket value in userDict and update it in userDB
 
+            #TODO: what happens to loop after logging out
             messageDB = MessageDB()
-            # TODO 1: retrieve old unread messages if any
-            self.handleUnread(userDict, messageDB)
-            # TODO 2: chat now
-            self.handleChat(userDB, userDict, messageDB)
+            while True:
+                self.handleChat(userDB, userDict, messageDB)
+
 
     def handleRegister(self, userPacket, userDB, userDict):
         if userDict:
@@ -64,7 +64,7 @@ class ThreadedTCPRequestHandler(SocketServer.BaseRequestHandler):
             # user is auto-logged-in if registration is success
             return SUCCESS
 
-    def handleLogin(self, userPacket, userDB, userDict, userBlocked):
+    def handleLogin(self, userPacket, userDB, userDict, userBlocked, userSocket):
         if not userDict:
             self.request.sendall(NO_SUCH_USER_EXISTS)
             return FAILED
@@ -84,6 +84,7 @@ class ThreadedTCPRequestHandler(SocketServer.BaseRequestHandler):
             else:
                 self.request.sendall(SUCCESSFULLY_AUTHENTICATED)
                 userDict['isLoggedIn'] = True
+                userDict['socket'] = userSocket
                 userDB.updateUserData(userDict)
                 return SUCCESS
         else:
@@ -116,37 +117,82 @@ class ThreadedTCPRequestHandler(SocketServer.BaseRequestHandler):
 
     # TODO 2.0:
     def handleChat(self, userDB, userDict, messageDB):
-        messageType = PRIVATE
+        # messageType = PRIVATE
         # first receive type of message(broadcast/private/logout), length of message
         # update messageType
+        try:
+            msgAck = self.request.recv(1024)
+            if not msgAck:
+                return
+            msgAck = eval(msgAck)
+            if msgAck['cmd'] == 'send':
 
-        # if private: receive toUser(first 8bytes?), then message
-        if messageType == PRIVATE:
-            self.handlePrivateMessage(userDB, userDict, toUser, message, messageDB)
-        elif messageType == BROADCAST:
-            # if broadcast: receive message
-            self.handleBroadcastMessage(userDB, message)
-        else:
-            # logout
-            self.handleLogout(userDB, userDict)
+                if msgAck['msgType'] == PRIVATE:
+                    msgPacket = eval(self.request.recv(msgAck['msgLen']))
+                    self.handlePrivateMessage(userDB, userDict, msgPacket, messageDB)
+
+                elif msgAck['msgType'] == BROADCAST:
+                    msgPacket = eval(self.request.recv(msgAck['msgLen']))
+                    self.handleBroadcastMessage(userDB, userDict, msgPacket, messageDB)
+
+            elif msgAck['cmd'] == LOGOUT:
+                    self.handleLogout(UserDB, userDict)
+
+            else:
+                pass
+
+        except socket.error, e:
+            pass
+
 
     # TODO 2.1:
-    def handlePrivateMessage(self, userDB, userDict, toUser, message, messageDB):
+    def handlePrivateMessage(self, userDB, userDict, msgPacket, messageDB, broadcast=False):
         # check toUser exists or not
         # check whether toUser is logged in or not
         # if logged in send him the message using userDB.getUserData(toUser)['socket']
         # otherwise store it in DB [toUser, fromUser, message, time?]
         #   -- messageDB.addUnreadMessage(toUser, fromUser, message)
-        pass
+        toUser = msgPacket['toUser']
+        receiver = userDB.getUserData(toUser)
+        if not receiver:
+            return
+
+        msgType = PRIVATE
+        if broadcast:
+            msgType = BROADCAST
+        msgPacket['msgType'] = msgType
+
+        if receiver['isLoggedIn']:
+            # write to socket
+            #TODO: Read host and port correctly
+            host, port = receiver['socket'][0], receiver['socket'][1] 
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            try:
+                s.connect((host, port))
+                msgAck = {'cmd':'send', 'msgLen':len(msgPacket), 'msgType':msgType}
+                s.sendall(str(msgAck))
+                s.sendall(str(msgPacket))
+                s.close()
+            except socket.error:
+                self.handleLogout(userDB, receiver)
+                self.handlePrivateMessage(userDB, userDict, msgPacket, messageDB)
+
+        else:
+            messageDB.addUnreadMessage(toUser, userDict['username'], msgPacket)
+
 
     # TODO 2.2:
-    def handleBroadcastMessage(self, userDB, message):
+    def handleBroadcastMessage(self, userDB, userDict, msgPacket, messageDB):
         # get all usernames/sockets who are loggedin: userDB.getAllUsersLoggedIn()
         #   -- and send them message
-        pass
+        activeUsers = userDB.getAllUsersLoggedIn()
+        for receiver in activeUsers:
+            msgPacket['toUser'] = receiver
+            self.handlePrivateMessage(userDB, userDict, msgPacket, messageDB, broadcast=True)
 
     # TODO 2.3:
     def handleLogout(self, userDB, userDict):
+
         pass
 
 class ThreadedTCPServer(SocketServer.ThreadingMixIn, SocketServer.TCPServer):

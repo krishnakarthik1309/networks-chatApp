@@ -42,7 +42,6 @@ class UserDB(object):
             active.append(user['username'])
         return active
 
-
 class MessageDB(object):
     def __init__(self):
         mongoServer = 'localhost'
