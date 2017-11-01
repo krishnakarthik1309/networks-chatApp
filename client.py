@@ -53,34 +53,49 @@ def messagePacket(userInput):
             ack['msgLen'] = msgLen
             message['msgContent'] = msgContent
             message['created'] = int(time.time())
+            ack['msgLen'] = len(str(message))
             return ack, message
         else:
             toUser = userInput[2]
             msgContent = userInput[3]
-            msgLen = len(msgContent)
             ack['msgType'] = msgType
-            ack['msgLen'] = msgLen
             message['toUser'] = toUser
             message['msgContent'] = msgContent
             message['created'] = int(time.time())
+            ack['msgLen'] = len(str(message))
             return ack, message
     elif cmd == LOGOUT:
         return ack, None
 
 def sendMsg(s):
+    global isLoggedIn
     while True:
         userInput = raw_input().split()
         ack, message = messagePacket(userInput)
-        s.sendall(ack)
+        print ack, message
+        s.sendall(str(ack))
+        s.recv(1024)
         if ack['cmd'] == 'send':
-            s.sendall(message)
+            s.sendall(str(message))
         if ack['cmd'] == LOGOUT:
             isLoggedIn = False
             s.close()
 
 def recvMsg(s):
+    global isLoggedIn
     while isLoggedIn:
         # handle receiving messages
+        # display
+		# handle receiving messages
+        msgAck = eval(s.recv(1024))
+        print msgAck
+        msgAck = eval(s.recv(1024))
+        s.sendall('1')
+        if msgAck['cmd'] == 'send':
+            msgLen = msgAck['msgLen']
+            msgType = msgAck['msgType']
+            msg = eval(s.recv(msgLen))
+            print msg
         # display
         pass
 
@@ -132,6 +147,7 @@ def main():
     # if authenticated
     if ack == '0':
         print "Successfully Authenticated"
+        global isLoggedIn
         isLoggedIn = True
         sendThread = Thread(target=sendMsg, args=(s, ))
         recvThread = Thread(target=recvMsg, args=(s, ))

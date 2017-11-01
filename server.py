@@ -32,7 +32,7 @@ class ThreadedTCPRequestHandler(SocketServer.BaseRequestHandler):
         # Receive special userPacket for login/register
         userPacket = eval(self.request.recv(1024))
         userSocket = self.request.getpeername()
-        
+
         # get the dict for the user
         userDB = UserDB()
         userDict = userDB.getUserData(userPacket['username'])
@@ -78,15 +78,15 @@ class ThreadedTCPRequestHandler(SocketServer.BaseRequestHandler):
         # check password match
         if userDict['password'] == userPacket['password']:
             # check already logged in
-            if userDict['isLoggedIn']:
-                self.request.sendall(USER_ALREADY_LOGGED_IN)
-                return FAILED
-            else:
-                self.request.sendall(SUCCESSFULLY_AUTHENTICATED)
-                userDict['isLoggedIn'] = True
-                userDict['socket'] = userSocket
-                userDB.updateUserData(userDict)
-                return SUCCESS
+            # if userDict['isLoggedIn']:
+            #     self.request.sendall(USER_ALREADY_LOGGED_IN)
+            #     return FAILED
+            # else:
+            self.request.sendall(SUCCESSFULLY_AUTHENTICATED)
+            userDict['isLoggedIn'] = True
+            userDict['socket'] = userSocket
+            userDB.updateUserData(userDict)
+            return SUCCESS
         else:
             if not userBlocked or (time.time() - userBlocked['initialFailedLoginTime'] > 60):
                 if not userBlocked:
@@ -125,6 +125,8 @@ class ThreadedTCPRequestHandler(SocketServer.BaseRequestHandler):
             if not msgAck:
                 return
             msgAck = eval(msgAck)
+            self.request.sendall('1232')
+            print msgAck
             if msgAck['cmd'] == 'send':
 
                 if msgAck['msgType'] == PRIVATE:
@@ -172,6 +174,7 @@ class ThreadedTCPRequestHandler(SocketServer.BaseRequestHandler):
                 msgAck = {'cmd':'send', 'msgLen':len(msgPacket), 'msgType':msgType}
                 s.sendall(str(msgAck))
                 s.sendall(str(msgPacket))
+                print receiver['isLoggedIn']
                 s.close()
             except socket.error:
                 self.handleLogout(userDB, receiver)
@@ -192,6 +195,8 @@ class ThreadedTCPRequestHandler(SocketServer.BaseRequestHandler):
 
     # TODO 2.3:
     def handleLogout(self, userDB, userDict):
+        userDict['isLoggedIn'] = False
+        userDB.updateUserData(userDict)
 
         pass
 
