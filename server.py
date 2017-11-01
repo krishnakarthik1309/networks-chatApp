@@ -45,12 +45,13 @@ class ThreadedTCPRequestHandler(SocketServer.BaseRequestHandler):
 
         if status == SUCCESS:
             # TODO 0: save client socket value in userDict and update it in userDB
+            pass
 
-            messageDB = MessageDB()
+            # messageDB = MessageDB()
             # TODO 1: retrieve old unread messages if any
-            self.handleUnread(userDict, messageDB)
+            # self.handleUnread(userDict, messageDB)
             # TODO 2: chat now
-            self.handleChat(userDB, userDict, messageDB)
+            # self.handleChat(userDB, userDict, messageDB)
 
     def handleRegister(self, userPacket, userDB, userDict):
         if userDict:
@@ -65,6 +66,8 @@ class ThreadedTCPRequestHandler(SocketServer.BaseRequestHandler):
             return SUCCESS
 
     def handleLogin(self, userPacket, userDB, userDict, userBlocked):
+        activeUsers = userDB.getAllUsersLoggedIn()
+        print activeUsers
         if not userDict:
             self.request.sendall(NO_SUCH_USER_EXISTS)
             return FAILED
@@ -140,10 +143,13 @@ class ThreadedTCPRequestHandler(SocketServer.BaseRequestHandler):
         pass
 
     # TODO 2.2:
-    def handleBroadcastMessage(self, userDB, message):
+    def handleBroadcastMessage(self, userDB, userDict,  message, messageDB):
         # get all usernames/sockets who are loggedin: userDB.getAllUsersLoggedIn()
         #   -- and send them message
-        pass
+        activeUsers = userDB.getAllUsersLoggedIn()
+        for receiver in activeUsers:
+            self.handlePrivateMessage(userDB, userDict, recevier, message, messageDB)
+        # pass
 
     # TODO 2.3:
     def handleLogout(self, userDB, userDict):

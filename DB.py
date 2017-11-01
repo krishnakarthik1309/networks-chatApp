@@ -33,11 +33,15 @@ class UserDB(object):
             self.userBlockList.replace_one(oldData, updatedData)
 
     def register(self, username, password):
-        self.userData.insert({'username': username, 'password': password, 'isLoggedIn': True})
+        self.userData.insert({'username': username, 'password': password, 'isLoggedIn': False})
 
     def getAllUsersLoggedIn(self):
-        pass
-
+        activeUsers = []
+        users = self.userData.find({'isLoggedIn': True})
+        for u in users:
+            activeUsers.append(u)
+        username = [ a.get('username') for a in activeUsers]
+        return username
 
 class MessageDB(object):
     def __init__(self):
