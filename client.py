@@ -3,13 +3,15 @@ import sys
 import getpass
 import time
 from threading import Thread
+import pymongo
 
 PRIVATE = 'private'
 BROADCAST = 'broadcast'
 LOGOUT = 'logout'
-msgLock = 'askUnread',
+msgLock = 'askUnread'
 isLoggedIn = False
 userDetails = {}
+userInput = None
 
 def help():
     # print all help material here
@@ -59,18 +61,36 @@ def messagePacket(userInput):
         return len(str(cmd)), {'cmd': cmd}
 
 
+def readInput():
+    global userInput
+    userInput = None
+    userInput = raw_input().split()
+
 def sendMsg(s):
-    global msgLock
+    global msgLock, userInput
     '''
     blocked till we have some message in queue
     before returning give lock to recvMsg
     '''
     while True:
-        userInput = raw_input().split()
+        # userInput = raw_input().split()
+        inputThread = Thread(target=readInput, args=())
+        inputThread.start()
+        startTime = int(time.time())
+        while userInput is None:
+            # wait for user to type
+            if int(time.time()) - startTime >= 2:
+                msgLock = 'askUnread'
+                ask = {'cmd': 'timeout'}
+                s.sendall(str(len(str(ask))))
+                askUnread(s)
+                startTime = int(time.time())
         msgLen, msg = messagePacket(userInput)
+        while msgLock == 'askUnread':
+            # wait
+            pass
         s.sendall(str(msgLen))
         while not msgLock == 'sendMsg':
-            # wait
             pass
         s.sendall(str(msg))
         if msg['cmd'] == LOGOUT:
@@ -90,7 +110,7 @@ def askUnread(s):
     s.sendall(str(ask))
     msgLen = eval(s.recv(1024))
     s.sendall('__RECEIVED_LEN')
-    msgs = eval(s.recv(msgLen))
+    msgs = eval(s.recv(int(msgLen)))
     for msg in msgs:
         print msg
     msgLock = 'recvMsg'
@@ -109,6 +129,8 @@ def recvMsg(s):
     recvData = s.recv(1024)
     while isLoggedIn:
         if recvData == '__UNREAD':
+            while msgLock == 'sendMsg':
+                pass
             msgLock = 'askUnread'
             askUnread(s)
         elif recvData == '__SEND_MESSAGE':
@@ -171,6 +193,7 @@ def main():
     if ack == '0':
         print("Successfully Authenticated")
         isLoggedIn = True
+        askUnread(s)
         sendThread = Thread(target=sendMsg, args=(s, ))
         recvThread = Thread(target=recvMsg, args=(s, ))
         sendThread.start()

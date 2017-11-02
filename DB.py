@@ -55,7 +55,7 @@ class MessageDB(object):
 
     def getUnreadMessages(self, username):
         msgs = []
-        for msg in self.messages.find({'toUser': username}):
+        for msg in self.messages.find({'toUser': username}, {'_id': False}):
             msgs.append(msg)
         return msgs
 
