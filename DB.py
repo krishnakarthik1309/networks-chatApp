@@ -54,7 +54,10 @@ class MessageDB(object):
         self.messages = db[messageCollection]
 
     def getUnreadMessages(self, username):
-        return self.messages.find({'toUser': username})
+        msgs = []
+        for msg in self.messages.find({'toUser': username}):
+            msgs.append(msg)
+        return msgs
 
     def removeUnreadMessages(self, username):
         self.messages.delete_many({'toUser': username})
