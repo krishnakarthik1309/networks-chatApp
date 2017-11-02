@@ -32,6 +32,7 @@ class ThreadedTCPRequestHandler(SocketServer.BaseRequestHandler):
         # Receive special userPacket for login/register
         userPacket = eval(self.request.recv(1024))
         userSocket = self.request.getpeername()
+        print(userSocket)
 
         # get the dict for the user
         userDB = UserDB()
@@ -126,11 +127,13 @@ class ThreadedTCPRequestHandler(SocketServer.BaseRequestHandler):
                 return
             msgAck = eval(msgAck)
             self.request.sendall('1232')
-            print msgAck
+            print(msgAck)
             if msgAck['cmd'] == 'send':
 
                 if msgAck['msgType'] == PRIVATE:
+                    print('private_message')
                     msgPacket = eval(self.request.recv(msgAck['msgLen']))
+                    print 'msgPacket:', msgPacket
                     self.handlePrivateMessage(userDB, userDict, msgPacket, messageDB)
 
                 elif msgAck['msgType'] == BROADCAST:
@@ -143,7 +146,7 @@ class ThreadedTCPRequestHandler(SocketServer.BaseRequestHandler):
             else:
                 pass
 
-        except socket.error, e:
+        except socket.error as e:
             pass
 
 
@@ -154,8 +157,10 @@ class ThreadedTCPRequestHandler(SocketServer.BaseRequestHandler):
         # if logged in send him the message using userDB.getUserData(toUser)['socket']
         # otherwise store it in DB [toUser, fromUser, message, time?]
         #   -- messageDB.addUnreadMessage(toUser, fromUser, message)
+        print('entered handlePrivateMessage')
         toUser = msgPacket['toUser']
         receiver = userDB.getUserData(toUser)
+        print('receiver:', receiver)
         if not receiver:
             return
 
@@ -167,16 +172,22 @@ class ThreadedTCPRequestHandler(SocketServer.BaseRequestHandler):
         if receiver['isLoggedIn']:
             # write to socket
             #TODO: Read host and port correctly
-            host, port = receiver['socket'][0], receiver['socket'][1] 
-            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            host, port = receiver['socket'][0], receiver['socket'][1]
+            print('host:', host)
+            print('port:', port)
+            # s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             try:
-                s.connect((host, port))
-                msgAck = {'cmd':'send', 'msgLen':len(msgPacket), 'msgType':msgType}
-                s.sendall(str(msgAck))
-                s.sendall(str(msgPacket))
-                print receiver['isLoggedIn']
-                s.close()
-            except socket.error:
+                # s.connect((host, port))
+                msgAck = {'cmd':'send', 'msgLen':len(str(msgPacket)), 'msgType':msgType}
+                # self.request.sendall(str(msgAck))
+                socket.socket().sendto(str(msgAck), (host, port))
+                print self.request.recv(1024)
+                print 'msgPacket:', str(msgPacket)
+                self.request.sendall(str(msgPacket))
+                print(receiver['isLoggedIn'])
+                # s.close()
+            except socket.error, e:
+                print 'socket error occured logging out and connecting agian', e
                 self.handleLogout(userDB, receiver)
                 self.handlePrivateMessage(userDB, userDict, msgPacket, messageDB)
 

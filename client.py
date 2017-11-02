@@ -8,16 +8,17 @@ PRIVATE = 'private'
 BROADCAST = 'broadcast'
 LOGOUT = 'logout'
 isLoggedIn = False
+canSendMsg = False
 
 def help():
     # print all help material here
-    print "Usage: help"
+    print("Usage: help")
     sys.exit()
 
 
 def UserPacket(arguments):
 
-    print arguments
+    print(arguments)
     if len(arguments) < 2:
         help()
 
@@ -68,57 +69,73 @@ def messagePacket(userInput):
         return ack, None
 
 def sendMsg(s):
-    global isLoggedIn
+    global isLoggedIn, canSendMsg
     while True:
         userInput = raw_input().split()
         ack, message = messagePacket(userInput)
-        print ack, message
+        print(ack, message)
         s.sendall(str(ack))
-        s.recv(1024)
-        if ack['cmd'] == 'send':
-            s.sendall(str(message))
+
         if ack['cmd'] == LOGOUT:
             isLoggedIn = False
             s.close()
+            return
+
+        while not canSendMsg:
+            # wait
+            k = 1
+        if ack['cmd'] == 'send':
+            print('cmd is send')
+            s.sendall(str(message))
+            print 'sent the message'
+            canSendMsg = False
 
 def recvMsg(s):
-    global isLoggedIn
+    global isLoggedIn, canSendMsg
     while isLoggedIn:
         # handle receiving messages
         # display
 		# handle receiving messages
         msgAck = eval(s.recv(1024))
-        print msgAck
-        msgAck = eval(s.recv(1024))
+
+        print(msgAck)
+        while msgAck == 1232:
+            canSendMsg = True
+            msgAck = eval(s.recv(1024))
+        canSendMsg = False
+
+        print 'msgAck:', msgAck
         s.sendall('1')
         if msgAck['cmd'] == 'send':
             msgLen = msgAck['msgLen']
             msgType = msgAck['msgType']
+            print 'msgLen:', msgLen
+            print 'msgType:', msgType
             msg = eval(s.recv(msgLen))
-            print msg
+            print(msg)
         # display
         pass
 
 def displayError(ack, purpose):
 
-    print ack
+    print(ack)
     if purpose == 'login':
         if ack.split()[0] == '1':
-            print "No such User Exists"
+            print("No such User Exists")
         elif ack.split()[0] == '2':
-            print "Incorrect username/password"
+            print("Incorrect username/password")
         elif ack.split()[0] == '3':
-            print "User already logged in from a different system"
+            print("User already logged in from a different system")
         elif ack.split()[0] == '4':
-            print "Password wrong, exceeded number of incorrect attempts. Retry after 60 secs"
+            print("Password wrong, exceeded number of incorrect attempts. Retry after 60 secs")
         elif ack.split()[0] == '5':
-            print "You have been blocked. Try after "+ ack.split()[1]
+            print("You have been blocked. Try after "+ ack.split()[1])
 
     elif purpose == 'register':
         if ack.split()[0] == '1':
-            print "Username is taken"
+            print("Username is taken")
         elif ack.split()[0] == '2':
-            print "You are registered"
+            print("You are registered")
 
     return
 
@@ -146,7 +163,7 @@ def main():
 
     # if authenticated
     if ack == '0':
-        print "Successfully Authenticated"
+        print("Successfully Authenticated")
         global isLoggedIn
         isLoggedIn = True
         sendThread = Thread(target=sendMsg, args=(s, ))
