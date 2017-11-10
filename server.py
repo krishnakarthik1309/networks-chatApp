@@ -1,9 +1,11 @@
 import time
 import socket
 import threading
+from threading import Thread
 import SocketServer
 from DB import UserDB
 from DB import MessageDB
+import struct
 
 # register constants
 USER_ALREADY_EXISTS = '1'
@@ -26,6 +28,7 @@ PRIVATE = 'private'
 BROADCAST = 'broadcast'
 LOGOUT = 'logout'
 
+MQueue = {}
 
 class ThreadedTCPRequestHandler(SocketServer.BaseRequestHandler):
     def handle(self):
@@ -40,9 +43,9 @@ class ThreadedTCPRequestHandler(SocketServer.BaseRequestHandler):
         userBlocked = userDB.getUserBlockList(userPacket['username'])
 
         status = FAILED
-        if userPacket['purpose'] == 'register':
+        if userPacket['cmd'] == 'register':
             status = self.handleRegister(userPacket, userDB, userDict)
-        elif userPacket['purpose'] == 'login':
+        elif userPacket['cmd'] == 'login':
             status = self.handleLogin(userPacket, userDB, userDict, userBlocked, userSocket)
 
         if status == SUCCESS:
@@ -50,12 +53,16 @@ class ThreadedTCPRequestHandler(SocketServer.BaseRequestHandler):
             #TODO: what happens to loop after logging out
             messageDB = MessageDB()
 
-            # read cmd 'view'
-            self.request.recv(1024)
             self.handleUnread(userDict, messageDB)
+            global MQueue
+            MQueue[userPacket['username']] = False
+            pingThread = Thread(target=self.pingClient, args=(messageDB, userDict))
+            pingThread.start()
 
-            while True:
+            while userDict['isLoggedIn']:
                 self.handleChat(userDB, userDict, messageDB)
+            time.sleep(0.2)
+            self.request.close()
 
     def handleRegister(self, userPacket, userDB, userDict):
         if userDict:
@@ -65,7 +72,6 @@ class ThreadedTCPRequestHandler(SocketServer.BaseRequestHandler):
             # register
             userDB.register(userPacket['username'], userPacket['password'])
             self.request.sendall(YOU_ARE_REGISTERED)
-
             # user is auto-logged-in if registration is success
             return SUCCESS
 
@@ -114,25 +120,31 @@ class ThreadedTCPRequestHandler(SocketServer.BaseRequestHandler):
             return  FAILED
 
     def handleUnread(self, userDict, messageDB):
-        msgs = str(messageDB.getUnreadMessages(userDict['username']))
-        self.request.sendall(str(len(msgs)))
-        self.request.recv(1024)
-        self.request.sendall(msgs)
+        print userDict['username'], "handleUnread"
+        msgs = messageDB.getUnreadMessages(userDict['username'])
+        for msg in msgs:
+            msg = str(msg)
+            lenmsg = len(msg)
+            lenmsg = str(struct.pack(">q", lenmsg))
+            msg = lenmsg + msg
+            self.request.send(msg)
         messageDB.removeUnreadMessages(userDict['username'])
+        global MQueue
+        MQueue[userDict['username']] = False
 
     def handleChat(self, userDB, userDict, messageDB):
-        msgLen = eval(self.request.recv(1024))
 
-        # send '__SEND_MESSAGE'
-        self.request.sendall('__SEND_MESSAGE')
-        # read userInput (complete msg)
-        msg = eval(self.request.recv(msgLen))
+        print "in handleChat"
+        lenmsg = self.request.recv(8)
+        lenmsg = struct.unpack(">q", lenmsg)[0]
+        print lenmsg
+        msg = eval(self.request.recv(lenmsg))
 
         if msg['cmd'] == 'send':
             if msg['msgType'] == PRIVATE:
                 self.handlePrivateMessage(userDB, userDict, msg, messageDB, broadcast=False)
             elif msg['msgType'] == BROADCAST:
-                pass
+                self.handleBroadcastMessage(userDB, userDict, msg, messageDB)
         elif msg['cmd'] == LOGOUT:
             self.handleLogout(userDB, userDict)
         elif msg['cmd'] == 'timeout' or msg['cmd'] == 'view':
@@ -144,6 +156,9 @@ class ThreadedTCPRequestHandler(SocketServer.BaseRequestHandler):
         if not receiver:
             return
         messageDB.addUnreadMessage(toUser, userDict['username'], msgPacket)
+        global MQueue
+        if toUser in MQueue:
+            MQueue[toUser] = True
 
     def handleBroadcastMessage(self, userDB, userDict, msgPacket, messageDB):
         activeUsers = userDB.getAllUsersLoggedIn()
@@ -152,13 +167,25 @@ class ThreadedTCPRequestHandler(SocketServer.BaseRequestHandler):
             self.handlePrivateMessage(userDB, userDict, msgPacket, messageDB, broadcast=True)
 
     def handleLogout(self, userDB, userDict):
+        print "logging Out", userDict['username']
         userDict['isLoggedIn'] = False
+        userDict['lastActive'] = time.time()
         userDB.updateUserData(userDict)
+
+    def pingClient(self, messageDB, userDict):
+        global MQueue
+        start = time.time()
+        while True:
+            # if time.time()-start >= 0.1:
+            if MQueue[userDict['username']]:
+                self.handleUnread(userDict, messageDB)
+            # start = time.time()
 
 class ThreadedTCPServer(SocketServer.ThreadingMixIn, SocketServer.TCPServer):
     pass
 
 def main():
+    global MQueue
     HOST = socket.gethostname()
     PORT = 9999
     server = ThreadedTCPServer((HOST, PORT), ThreadedTCPRequestHandler)

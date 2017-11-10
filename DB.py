@@ -1,5 +1,6 @@
 import pymongo
 import time
+from copy import deepcopy
 
 class UserDB(object):
     def __init__(self):
@@ -63,4 +64,10 @@ class MessageDB(object):
         self.messages.delete_many({'toUser': username})
 
     def addUnreadMessage(self, toUser, fromUser, message):
-        self.messages.insert({'toUser': toUser, 'fromUser': fromUser, 'message': message, 'time': int(time.time())})
+        # self.messages.insert({'toUser': toUser, 'fromUser': fromUser, 'message': message, 'time': int(time.time())})
+        M = deepcopy(message)
+        M['toUser'] = toUser
+        M['fromUser'] = fromUser
+        M['time'] = time.time()
+        #print message
+        self.messages.insert(M)

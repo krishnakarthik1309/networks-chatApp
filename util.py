@@ -1,13 +1,10 @@
 import sys
+import time
 
-# assumption: no need for acks
-def wrapSend(s, packet):
-    data = str(packet)
-    s.sendall(str(len(data)))
-    s.sendall(data)
+def getTime(epoch):
+    return time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(float(epoch)))
 
-def wrapRecv(s):
-    dataLen = int(s.recv(sys.getsizeof(int())))
-    if dataLen == 0:
-        return -1
-    return eval(s.recv(dataLen))
+def displayMessage(message):
+	message = eval(message)
+	m = '\n<{}> :: \t {} \t \t(as {} on {})\n'.format(message['fromUser'],message['msgData'], message['msgType'], getTime(str(message['created'])))
+	print m
