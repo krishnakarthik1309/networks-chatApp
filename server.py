@@ -24,8 +24,10 @@ SUCCESS = 1
 MAX_ATTEMPTS = 3
 BLOCK_TIME = 60
 
-PRIVATE = 'private'
-BROADCAST = 'broadcast'
+PRIVATE = '-p'
+BROADCAST = '-b'
+WHOELSE = 'whoelse'
+WOISTHERE = 'whoisthere'
 LOGOUT = 'logout'
 
 MQueue = {}
@@ -176,10 +178,10 @@ class ThreadedTCPRequestHandler(SocketServer.BaseRequestHandler):
         global MQueue
         start = time.time()
         while True:
-            # if time.time()-start >= 0.1:
-            if MQueue[userDict['username']]:
-                self.handleUnread(userDict, messageDB)
-            # start = time.time()
+            if time.time()-start >= 0.1:
+                if MQueue[userDict['username']]:
+                    self.handleUnread(userDict, messageDB)
+                start = time.time()
 
 class ThreadedTCPServer(SocketServer.ThreadingMixIn, SocketServer.TCPServer):
     pass

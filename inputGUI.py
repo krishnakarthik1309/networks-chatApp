@@ -24,13 +24,13 @@ class mainWindow(object):
         message = self.e.get(1.0,END)
         if message == 'logout':
             self.master.quit()
-        sys.stdout.write("<{}(you)>:  {}\n".format(self.userDetails['username'], message))
+        sys.stdout.write("<{}(you)>:  {}".format(self.userDetails['username'], message))
         self.e.delete(1.0, 'end')
         packet = messagePacket(message.strip().split(), self.userDetails)
         if not packet:
             return
         l, message =  packet
-        #print l, message
+        # print l, message
         l = str(struct.pack(">q", l))
         message = l + str(message)
         self.server.send(message)

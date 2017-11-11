@@ -10,8 +10,10 @@ from util import *
 from Tkinter import *
 import inputGUI
 
-PRIVATE = 'private'
-BROADCAST = 'broadcast'
+PRIVATE = '-p'
+BROADCAST = '-b'
+WHOELSE = 'whoelse'
+WOISTHERE = 'whoisthere'
 LOGOUT = 'logout'
 msgLock = 'askUnread'
 isLoggedIn = False
@@ -51,26 +53,28 @@ def messagePacket(userInput, userDetails):
     if not userInput:
         return None
     cmd = userInput[0]
-    if cmd == 'send':
-        msgType = userInput[1]
-        if msgType == PRIVATE:
-            toUser = userInput[2]
-            msgData = ' '.join(userInput[3:])
-            created = time.time()
-            msg = {'cmd': cmd, 'msgType': msgType, 'toUser': toUser, 'msgData': msgData,\
-                   'created': created, 'fromUser': userDetails['username']}
-            return len(str(msg)), msg
-        elif msgType == BROADCAST:
-            msgData = ' '.join(userInput[2:])
-            created = time.time()
-            msg = {'cmd': cmd, 'msgType': msgType, 'msgData': msgData,\
-                   'created': created, 'fromUser': userDetails['username']}
-            return len(str(msg)), msg
+    if cmd == PRIVATE:
+        toUser = userInput[1]
+        msgData = ' '.join(userInput[2:])
+        created = time.time()
+        msg = {'cmd': 'send', 'msgType': cmd, 'toUser': toUser, 'msgData': msgData,\
+               'created': created, 'fromUser': userDetails['username']}
+        return len(str(msg)), msg
+    elif cmd == BROADCAST:
+        msgData = ' '.join(userInput[1:])
+        created = time.time()
+        msg = {'cmd': 'send', 'msgType': cmd, 'msgData': msgData,\
+               'created': created, 'fromUser': userDetails['username']}
+        return len(str(msg)), msg
+    elif cmd is WHOELSE:
+        pass
+    elif cmd is WOISTHERE:
+        pass
     elif cmd == LOGOUT:
         msg = {'cmd': cmd}
         return len(str(msg)), msg
-
-    return None
+    else:
+        return None
 
 
 def displayError(ack, cmd):

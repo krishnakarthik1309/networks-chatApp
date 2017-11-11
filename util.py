@@ -6,5 +6,5 @@ def getTime(epoch):
 
 def displayMessage(message):
 	message = eval(message)
-	m = '\n<{}> :: \t {} \t \t(as {} on {})\n'.format(message['fromUser'],message['msgData'], message['msgType'], getTime(str(message['created'])))
+	m = '<{}>:  {} \t\t(as {} on {})'.format(message['fromUser'],message['msgData'], message['msgType'], getTime(str(message['created'])))
 	print m
