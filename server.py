@@ -27,10 +27,12 @@ BLOCK_TIME = 60
 PRIVATE = '-p'
 BROADCAST = '-b'
 WHOELSE = 'whoelse'
-WOISTHERE = 'whoisthere'
+WHOISTHERE = 'whoisthere'
 LOGOUT = 'logout'
 
 MQueue = {}
+UsersOnline = {}
+UsersRegistered = [False, {}]
 
 class ThreadedTCPRequestHandler(SocketServer.BaseRequestHandler):
     def handle(self):
@@ -56,13 +58,19 @@ class ThreadedTCPRequestHandler(SocketServer.BaseRequestHandler):
             messageDB = MessageDB()
 
             self.handleUnread(userDict, messageDB)
-            global MQueue
+
+            global MQueue, UsersOnline
             MQueue[userPacket['username']] = False
+            UsersOnline[userPacket['username']] = True
+            self.getRegisteredUsers(userDB, userDict)
+
             pingThread = Thread(target=self.pingClient, args=(messageDB, userDict))
             pingThread.start()
 
             while userDict['isLoggedIn']:
                 self.handleChat(userDB, userDict, messageDB)
+
+            UsersOnline[userPacket['username']] = False
             time.sleep(0.2)
             self.request.close()
 
@@ -149,8 +157,13 @@ class ThreadedTCPRequestHandler(SocketServer.BaseRequestHandler):
                 self.handleBroadcastMessage(userDB, userDict, msg, messageDB)
         elif msg['cmd'] == LOGOUT:
             self.handleLogout(userDB, userDict)
-        elif msg['cmd'] == 'timeout' or msg['cmd'] == 'view':
-            self.handleUnread(userDict, messageDB)
+        elif msg['cmd'] == WHOISTHERE:
+            self.handleWhoIsThere(userDB, userDict, messageDB)
+        elif msg['cmd'] == WHOELSE:
+            self.handleWhoElse(userDB, userDict, messageDB)
+
+        # elif msg['cmd'] == 'timeout' or msg['cmd'] == 'view':
+        #     self.handleUnread(userDict, messageDB)
 
     def handlePrivateMessage(self, userDB, userDict, msgPacket, messageDB, broadcast=False):
         toUser = msgPacket['toUser']
@@ -173,6 +186,42 @@ class ThreadedTCPRequestHandler(SocketServer.BaseRequestHandler):
         userDict['isLoggedIn'] = False
         userDict['lastActive'] = time.time()
         userDB.updateUserData(userDict)
+
+    def handleWhoIsThere(self, userDB, userDict, messageDB):
+        global UsersOnline, MQueue
+        msgData = 'Online Users are\n'
+        for u in UsersOnline:
+            if UsersOnline[u]:
+                msgData += '\t\t' + u + '\n'
+        toUser = userDict['username']
+        created = time.time()
+        msgPacket = {'msgType': 'query', 'msgData': msgData,\
+               'created': created, 'fromUser': 'server'}
+        messageDB.addUnreadMessage(toUser, 'server', msgPacket)
+        MQueue[toUser] = True
+
+    def handleWhoElse(self, userDB, userDict, messageDB):
+        global UsersRegistered, MQueue
+        msgData = 'Registered Users are\n'
+        for u in UsersRegistered[1]:
+            msgData += '\t\t' + u + '\n'
+        toUser = userDict['username']
+        created = time.time()
+        msgPacket = {'msgType': 'query', 'msgData': msgData,\
+               'created': created, 'fromUser': 'server'}
+        messageDB.addUnreadMessage(toUser, 'server', msgPacket)
+        MQueue[toUser] = True
+
+    def getRegisteredUsers(self, userDB, userDict):
+        global UsersRegistered
+        UsersRegistered[1][userDict['username']] = True
+        if UsersRegistered[0]:
+            return
+        else:
+            allUsers = userDB.getAllUsers()
+            for u in allUsers:
+                UsersRegistered[1][u] = True
+            UsersRegistered[0] = True
 
     def pingClient(self, messageDB, userDict):
         global MQueue

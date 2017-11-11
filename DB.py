@@ -43,6 +43,12 @@ class UserDB(object):
             active.append(user['username'])
         return active
 
+    def getAllUsers(self):
+        allU = []
+        for user in self.userData.find({}):
+            allU.append(user['username'])
+        return allU
+
 class MessageDB(object):
     def __init__(self):
         mongoServer = 'localhost'

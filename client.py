@@ -66,10 +66,12 @@ def messagePacket(userInput, userDetails):
         msg = {'cmd': 'send', 'msgType': cmd, 'msgData': msgData,\
                'created': created, 'fromUser': userDetails['username']}
         return len(str(msg)), msg
-    elif cmd is WHOELSE:
-        pass
-    elif cmd is WOISTHERE:
-        pass
+    elif cmd == WHOELSE:
+        msg = {'cmd': cmd}
+        return len(str(msg)), msg
+    elif cmd == WOISTHERE:
+        msg = {'cmd': cmd}
+        return len(str(msg)), msg
     elif cmd == LOGOUT:
         msg = {'cmd': cmd}
         return len(str(msg)), msg
