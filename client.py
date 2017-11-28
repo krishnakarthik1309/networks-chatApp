@@ -15,7 +15,8 @@ BROADCAST = '-b'
 WHOELSE = 'whoelse'
 WOISTHERE = 'whoisthere'
 LOGOUT = 'logout'
-msgLock = 'askUnread'
+BLOCK = '-block'
+UNBLOCK = '-unblock'
 isLoggedIn = False
 userDetails = {}
 userInput = None
@@ -65,6 +66,15 @@ def messagePacket(userInput, userDetails):
         created = time.time()
         msg = {'cmd': 'send', 'msgType': cmd, 'msgData': msgData,\
                'created': created, 'fromUser': userDetails['username']}
+        return len(str(msg)), msg
+    elif cmd == BLOCK:
+        blockedUser = userInput[1]
+        msg = {'cmd': cmd, 'blocker': userDetails['username'], 'blockedUser': blockedUser}
+        return len(str(msg)), msg
+    elif cmd == BLOCK:
+        print 'entered Block'
+        unblockedUser = userInput[1]
+        msg = {'cmd': cmd, 'unblocker': userDetails['username'], 'unblockedUser': unblockedUser}
         return len(str(msg)), msg
     elif cmd == WHOELSE:
         msg = {'cmd': cmd}
@@ -144,7 +154,7 @@ def main():
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     # getServerAddress(), get local machine name
     host = socket.gethostname()
-    port = 9999
+    port = 9998
     # connection to hostname on the port.
     s.connect((host, port))
     # Create a packet using the command line args

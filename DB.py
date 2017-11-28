@@ -8,31 +8,33 @@ class UserDB(object):
         mongoPort = 27017
         dbName = 'userDB'
         userDataCollection = 'userData'
-        userBlockCollection = 'userBlockList'
+        userLoginBlockListCollection = 'userLoginBlockList'
+        userBlockListCollection = 'userBlockList'
 
         connection = pymongo.MongoClient(mongoServer, mongoPort)
         db = connection[dbName]
         self.userData = db[userDataCollection]
-        self.userBlockList = db[userBlockCollection]
+        self.userLoginBlockList = db[userLoginBlockListCollection]
+        self.userBlockList = db[userBlockListCollection]
 
     def getUserData(self, username):
         return self.userData.find_one({'username': username})
 
-    def getUserBlockList(self, username):
-        return self.userBlockList.find_one({'username': username})
+    def getUserLoginBlockList(self, username):
+        return self.userLoginBlockList.find_one({'username': username})
 
     def updateUserData(self, updatedData):
         username = updatedData['username']
         oldData = self.getUserData(username)
         self.userData.replace_one(oldData, updatedData)
 
-    def updateUserBlockList(self, updatedData):
+    def updateUserLoginBlockList(self, updatedData):
         username = updatedData['username']
-        oldData = self.getUserBlockList(username)
+        oldData = self.getUserLoginBlockList(username)
         if oldData is None:
-            self.userBlockList.insert(updatedData)
+            self.userLoginBlockList.insert(updatedData)
         else:
-            self.userBlockList.replace_one(oldData, updatedData)
+            self.userLoginBlockList.replace_one(oldData, updatedData)
 
     def register(self, username, password):
         self.userData.insert({'username': username, 'password': password, 'isLoggedIn': False, 'socket': [-1, -1]})
@@ -48,6 +50,19 @@ class UserDB(object):
         for user in self.userData.find({}):
             allU.append(user['username'])
         return allU
+
+    def getUserBlockList(self, username):
+        print 'get'
+        return self.userBlockList.find_one({'username': username})
+
+    def updateUserBlockList(self, updatedData):
+        print 'update'
+        username = updatedData['username']
+        oldData = self.getUserLoginBlockList(username)
+        if oldData is None:
+            self.userBlockList.insert(updatedData)
+        else:
+            self.userBlockList.replace_one(oldData, updatedData)
 
 class MessageDB(object):
     def __init__(self):

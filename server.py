@@ -29,6 +29,8 @@ BROADCAST = '-b'
 WHOELSE = 'whoelse'
 WHOISTHERE = 'whoisthere'
 LOGOUT = 'logout'
+BLOCK = '-block'
+UNBLOCK = '-unblock'
 
 MQueue = {}
 UsersOnline = {}
@@ -44,7 +46,7 @@ class ThreadedTCPRequestHandler(SocketServer.BaseRequestHandler):
         # get the dict for the user
         userDB = UserDB()
         userDict = userDB.getUserData(userPacket['username'])
-        userBlocked = userDB.getUserBlockList(userPacket['username'])
+        userBlocked = userDB.getUserLoginBlockList(userPacket['username'])
 
         status = FAILED
         if userPacket['cmd'] == 'register':
@@ -99,15 +101,15 @@ class ThreadedTCPRequestHandler(SocketServer.BaseRequestHandler):
         # check password match
         if userDict['password'] == userPacket['password']:
             # check already logged in
-            # if userDict['isLoggedIn']:
-            #     self.request.sendall(USER_ALREADY_LOGGED_IN)
-            #     return FAILED
-            # else:
-            self.request.sendall(SUCCESSFULLY_AUTHENTICATED)
-            userDict['isLoggedIn'] = True
-            userDict['socket'] = userSocket
-            userDB.updateUserData(userDict)
-            return SUCCESS
+            if userDict['isLoggedIn']:
+                self.request.sendall(USER_ALREADY_LOGGED_IN)
+                return FAILED
+            else:
+                self.request.sendall(SUCCESSFULLY_AUTHENTICATED)
+                userDict['isLoggedIn'] = True
+                userDict['socket'] = userSocket
+                userDB.updateUserData(userDict)
+                return SUCCESS
         else:
             if not userBlocked or (time.time() - userBlocked['initialFailedLoginTime'] > 60):
                 if not userBlocked:
@@ -126,7 +128,7 @@ class ThreadedTCPRequestHandler(SocketServer.BaseRequestHandler):
                 self.request.sendall(PASSWORD_WRONG)
 
             # Update userBlockList
-            userDB.updateUserBlockList(userBlocked)
+            userDB.updateUserLoginBlockList(userBlocked)
             return  FAILED
 
     def handleUnread(self, userDict, messageDB):
@@ -155,6 +157,27 @@ class ThreadedTCPRequestHandler(SocketServer.BaseRequestHandler):
                 self.handlePrivateMessage(userDB, userDict, msg, messageDB, broadcast=False)
             elif msg['msgType'] == BROADCAST:
                 self.handleBroadcastMessage(userDB, userDict, msg, messageDB)
+        elif msg['cmd'] == BLOCK:
+            # update userBlockList
+            userBlockSet = userDB.getUserBlockList(userDict['username'])
+            print 'enetered block <', userBlockSet, '>'
+            if userBlockSet is not None:
+                if msg['blockedUser'] not in userBlockSet['blockSet']:
+                    userBlockSet['blockSet'].append(msg['blockedUser'])
+                    userDB.updateUserBlockList(userBlockSet)
+                    print 'userBlockSet is not None'
+            else:
+                userBlockSet = {'username': userDict['username'], 'blockSet': [msg['blockedUser']]}
+                userDB.updateUserBlockList(userBlockSet)
+                print 'userBlockSet is None, but added now'
+                print userDB.getUserBlockList(userDict['username'])
+        elif msg['cmd'] == UNBLOCK:
+            # update userBlockList
+            userBlockSet = userDB.getUserBlockList(userDict['username'])
+            if userBlockSet is not None:
+                if msg['unblockedUser'] in userBlockSet['blockSet']:
+                    userBlockSet['blockSet'].remove(msg['blockedUser'])
+                    userDB.updateUserBlockList(userBlockSet)
         elif msg['cmd'] == LOGOUT:
             self.handleLogout(userDB, userDict)
         elif msg['cmd'] == WHOISTHERE:
@@ -170,10 +193,16 @@ class ThreadedTCPRequestHandler(SocketServer.BaseRequestHandler):
         receiver = userDB.getUserData(toUser)
         if not receiver:
             return
-        messageDB.addUnreadMessage(toUser, userDict['username'], msgPacket)
-        global MQueue
-        if toUser in MQueue:
-            MQueue[toUser] = True
+        # if toUser is blocked then simply exit this method else continue to next step
+        uBlockList = userDB.getUserBlockList(toUser)
+        print '<', uBlockList, '>'
+        if uBlockList is None or userDict['username'] not in uBlockList['blockSet']:
+            messageDB.addUnreadMessage(toUser, userDict['username'], msgPacket)
+            global MQueue
+            if toUser in MQueue:
+                MQueue[toUser] = True
+        else:
+            print 'blocked user: ', userDict['username'], ' by: ', toUser
 
     def handleBroadcastMessage(self, userDB, userDict, msgPacket, messageDB):
         activeUsers = userDB.getAllUsersLoggedIn()
@@ -238,7 +267,7 @@ class ThreadedTCPServer(SocketServer.ThreadingMixIn, SocketServer.TCPServer):
 def main():
     global MQueue
     HOST = socket.gethostname()
-    PORT = 9999
+    PORT = 9998
     server = ThreadedTCPServer((HOST, PORT), ThreadedTCPRequestHandler)
 
     # start a thread with the server.
