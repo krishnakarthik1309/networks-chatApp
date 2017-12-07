@@ -8,8 +8,8 @@ class UserDB(object):
         mongoPort = 27017
         dbName = 'userDB'
         userDataCollection = 'userData'
-        userLoginBlockListCollection = 'userLoginBlockList'
-        userBlockListCollection = 'userBlockList'
+        userLoginBlockListCollection = 'userLoginBlockList-final'
+        userBlockListCollection = 'userBlockList-final'
 
         connection = pymongo.MongoClient(mongoServer, mongoPort)
         db = connection[dbName]

@@ -85,7 +85,7 @@ class ThreadedTCPRequestHandler(SocketServer.BaseRequestHandler):
             userDB.register(userPacket['username'], userPacket['password'])
             self.request.sendall(YOU_ARE_REGISTERED)
             # user is auto-logged-in if registration is success
-            return SUCCESS
+            return FAILED
 
     def handleLogin(self, userPacket, userDB, userDict, userBlocked, userSocket):
         if not userDict:
@@ -176,8 +176,10 @@ class ThreadedTCPRequestHandler(SocketServer.BaseRequestHandler):
             userBlockSet = userDB.getUserBlockList(userDict['username'])
             if userBlockSet is not None:
                 if msg['unblockedUser'] in userBlockSet['blockSet']:
+                    print userBlockSet['blockSet']
                     userBlockSet['blockSet'].remove(msg['blockedUser'])
                     userDB.updateUserBlockList(userBlockSet)
+                    print userBlockSet['blockSet'], " after"
         elif msg['cmd'] == LOGOUT:
             self.handleLogout(userDB, userDict)
         elif msg['cmd'] == WHOISTHERE:
